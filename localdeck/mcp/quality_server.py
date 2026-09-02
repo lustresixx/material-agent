@@ -29,6 +29,11 @@ async def inspect_slide(
 
     async with SlideInspector(_workspace()) as inspector:
         report = await inspector.inspect(html_file, aspect_ratio)
+    if not report.passed:
+        raise RuntimeError(
+            "Slide inspection failed; repair the reported issues and inspect again: "
+            f"{report.model_dump_json()}"
+        )
     return report.model_dump(mode="json")
 
 

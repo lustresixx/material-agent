@@ -98,8 +98,10 @@ class Agent:
 
     async def _execute_calls(self, calls: list[ToolCall]) -> str | None:
         outcome: str | None = None
+        batch_failed = False
         for call in calls:
             result, arguments = await self._execute_call(call)
+            batch_failed = batch_failed or result.is_error
             self.history.append(
                 {
                     "role": "tool",
@@ -111,7 +113,7 @@ class Agent:
                 value = arguments.get("outcome") if arguments is not None else None
                 if isinstance(value, str) and value.strip():
                     outcome = value.strip()
-        return outcome
+        return None if batch_failed else outcome
 
     async def _execute_call(
         self, call: ToolCall

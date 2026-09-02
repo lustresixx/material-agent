@@ -115,3 +115,31 @@ async def test_agent_stops_at_turn_limit() -> None:
     with pytest.raises(AgentTurnLimitError, match="Research"):
         await agent.run("create")
 
+
+async def test_agent_ignores_finalize_when_same_batch_contains_tool_error() -> None:
+    llm = ScriptedLLM(
+        [
+            AssistantResponse(
+                tool_calls=[
+                    ToolCall(
+                        id="bad-write",
+                        name="write_file",
+                        arguments="{broken",
+                    ),
+                    ToolCall(
+                        id="early-finalize",
+                        name="finalize",
+                        arguments=json.dumps({"outcome": "result.md"}),
+                    ),
+                ]
+            ),
+            response_with_call(
+                "finalize", json.dumps({"outcome": "result.md"}), "valid-finalize"
+            ),
+        ]
+    )
+    agent = Agent("Research", llm, RecordingTools(), "system", max_turns=2)
+
+    assert await agent.run("create") == "result.md"
+    assert len(llm.requests) == 2
+    assert "Invalid JSON arguments" in llm.requests[1][-2]["content"]
