@@ -115,3 +115,85 @@ class LocalMCPClient:
             is_error=bool(response.isError),
         )
 
+
+class LocalToolHub:
+    """Merge several local MCP catalogs behind one Agent tool provider."""
+
+    DEFAULT_MODULES = (
+        "localdeck.mcp.workspace_server",
+        "localdeck.mcp.quality_server",
+        "localdeck.mcp.task_server",
+    )
+
+    def __init__(
+        self,
+        workspace: Path,
+        server_modules: tuple[str, ...] | None = None,
+    ) -> None:
+        self.workspace = workspace
+        self.server_modules = server_modules or self.DEFAULT_MODULES
+        self._stack: AsyncExitStack | None = None
+        self._tools: dict[str, tuple[MCPTool, LocalMCPClient]] = {}
+        self.history: list[dict[str, Any]] = []
+
+    async def __aenter__(self) -> "LocalToolHub":
+        stack = AsyncExitStack()
+        for module in self.server_modules:
+            client = await stack.enter_async_context(
+                LocalMCPClient(module, self.workspace)
+            )
+            for tool in await client.list_tools():
+                if tool.name in self._tools:
+                    raise ValueError(f"Duplicate MCP tool name: {tool.name}")
+                self._tools[tool.name] = (tool, client)
+        self._stack = stack
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        if self._stack is not None:
+            await self._stack.aclose()
+        self._stack = None
+        self._tools.clear()
+
+    async def list_tools(self) -> list[MCPTool]:
+        return [entry[0] for entry in self._tools.values()]
+
+    async def call_tool(
+        self, name: str, arguments: dict[str, Any]
+    ) -> MCPToolResult:
+        if name not in self._tools:
+            return MCPToolResult(text=f"Unknown tool: {name}", is_error=True)
+        result = await self._tools[name][1].call_tool(name, arguments)
+        self.history.append(
+            {
+                "tool": name,
+                "arguments": arguments,
+                "result": result.model_dump(),
+            }
+        )
+        return result
+
+
+class FilteredTools:
+    """Expose only the stage-specific subset of a shared tool hub."""
+
+    def __init__(self, provider: LocalToolHub, allowed: set[str]) -> None:
+        self.provider = provider
+        self.allowed = allowed
+
+    async def list_tools(self) -> list[MCPTool]:
+        return [
+            tool for tool in await self.provider.list_tools() if tool.name in self.allowed
+        ]
+
+    async def call_tool(
+        self, name: str, arguments: dict[str, Any]
+    ) -> MCPToolResult:
+        if name not in self.allowed:
+            return MCPToolResult(text=f"Tool is not available in this stage: {name}", is_error=True)
+        return await self.provider.call_tool(name, arguments)
