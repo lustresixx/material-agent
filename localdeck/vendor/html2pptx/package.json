@@ -1,0 +1,12 @@
+{
+  "name": "localdeck-html2pptx",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Trusted renderer for LocalDeck's browser-extracted slide model",
+  "license": "MIT",
+  "dependencies": {
+    "minimist": "^1.2.8",
+    "pptxgenjs": "^4.0.1"
+  }
+}
+
