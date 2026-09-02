@@ -39,7 +39,7 @@ localdeck/
 ├── config.py                 # 环境变量和运行设置
 ├── models.py                 # Pydantic 边界模型
 ├── pipeline.py               # 阶段编排与工作区生命周期
-├── logging.py                # JSONL 事件和密钥脱敏
+├── logging.py                # 原子 JSON 与 JSONL 持久化
 ├── agents/
 │   ├── base.py               # 通用工具调用循环
 │   ├── research.py           # 文稿阶段
@@ -62,11 +62,11 @@ vendored 转换器放在 `localdeck/vendor/html2pptx/`，保持独立来源说�
 
 - `Settings`：API Base URL、模型、超时、重试、最大轮次、运行根目录。
 - `GenerationRequest`：主题、页数、语言、宽高比、输出路径。
-- `ChatMessage`：system、user、assistant、tool 消息及工具调用。
-- `ToolResult`：工具调用 ID、文本、错误状态。
+- `AssistantResponse` / `ToolCall`：模型回复和结构化工具调用。
+- `MCPToolResult`：工具结果文本和错误状态。
 - `InspectionIssue`：错误代码、严重级别、元素和说明。
 - `InspectionReport`：页面尺寸、问题列表、截图和是否通过。
-- `RunManifest`：运行 ID、阶段状态、产物、耗时和 Token 使用量。
+- `RunManifest`：运行 ID、阶段状态、主要产物和失败原因。
 - `GenerationResult`：最终 PPTX 和所有可诊断产物的路径。
 
 所有外部输入、API 响应、工具参数和阶段结果都在边界处校验。内部代码使用明确类型，不传递无约束字典。
@@ -81,7 +81,8 @@ vendored 转换器放在 `localdeck/vendor/html2pptx/`，保持独立来源说�
 6. 若模型没有工具调用且没有完成，追加简短继续指令。
 7. 达到最大轮次仍未完成时抛出 `AgentTurnLimitError`。
 
-Research 默认最多 8 轮；Design 默认最多 20 轮；单页检查最多允许 3 次失败。
+Research 默认最多 8 轮；Design 默认最多 20 轮。质检失败会消耗 Design
+轮次，达到总轮次上限后终止。
 
 ## 5. 本地 MCP 与路径安全
 
@@ -187,4 +188,6 @@ uv run localdeck generate "主题" --slides 6 --language zh --output output.pptx
 
 ## 12. 调用链文档
 
-`docs/call-chain.html` 使用 Archify 生成，包含总体架构、Research 时序、Design 检查循环、MCP 进程关系、导出链路和失败恢复分支。最终文件必须通过 showcase validation、delivery 和多桌面尺寸 visual-check。
+`docs/call-chain.html` 使用 Archify 生成，包含总体架构、Research/Design
+主链路、本地 MCP 关系、导出门禁和失败恢复分支。最终文件必须通过
+showcase validation、delivery 和多桌面尺寸 visual-check。

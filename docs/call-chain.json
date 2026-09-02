@@ -1,0 +1,104 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "LocalDeck：无 Docker 的 PPTX 生成调用链",
+    "subtitle": "文本主题 → 双 Agent → 本地 MCP → HTML 质检 → 可编辑 PPTX",
+    "locale": "zh-CN",
+    "animation": "trace",
+    "visual_preset": "signal-flow",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "happy_path",
+        "label": "主生成链路",
+        "focus": ["topic", "cli", "pipeline", "research", "design", "delivery"],
+        "note": "从文本主题跟踪到经过两道门禁的可编辑 PPTX。"
+      },
+      {
+        "id": "tool_loop",
+        "label": "本地工具循环",
+        "focus": ["research", "design", "glm", "mcp", "workspace"],
+        "note": "Agent 调用 GLM 决策，再经本地 MCP 对受限工作区执行结构化操作。"
+      },
+      {
+        "id": "quality_gate",
+        "label": "质检与交付",
+        "focus": ["design", "delivery"],
+        "note": "HTML 先经 Playwright 检查；PPTX 回读失败时不覆盖目标文件。"
+      }
+    ],
+    "legend": {
+      "mode": "all",
+      "entries": {
+        "frontend": { "label": "命令入口" },
+        "backend": { "label": "本地运行时" },
+        "database": { "label": "持久化产物" },
+        "cloud": { "label": "模型 API" },
+        "security": { "label": "质量门禁" },
+        "messagebus": { "label": "MCP 工具总线" },
+        "external": { "label": "用户输入/输出" }
+      }
+    },
+    "output": "docs/call-chain.html"
+  },
+  "lanes": [
+    { "id": "main", "label": "主生成链路" },
+    { "id": "tooling", "label": "模型与本地工具" }
+  ],
+  "phases": [
+    { "id": "intake", "label": "输入", "fromCol": 0, "toCol": 1 },
+    { "id": "generation", "label": "研究与设计", "fromCol": 2, "toCol": 4, "variant": "emphasis" },
+    { "id": "publish", "label": "验证与发布", "fromCol": 5, "toCol": 5, "variant": "dashed" }
+  ],
+  "mainPath": ["topic", "cli", "pipeline", "research", "design", "delivery"],
+  "semanticChecks": {
+    "allowedRoots": ["topic"],
+    "allowedTerminals": ["delivery"],
+    "requiredPaths": [
+      { "from": "topic", "to": "delivery" },
+      { "from": "research", "to": "workspace" },
+      { "from": "design", "to": "delivery" }
+    ]
+  },
+  "nodes": [
+    { "id": "topic", "lane": "main", "col": 0, "type": "external", "label": "文本主题", "sublabel": "主题 + 页数 + 比例" },
+    { "id": "cli", "lane": "main", "col": 1, "type": "frontend", "label": "LocalDeck CLI", "sublabel": "校验参数与配置" },
+    { "id": "pipeline", "lane": "main", "col": 2, "type": "backend", "label": "Pipeline", "sublabel": "编排 + manifest", "tag": "失败即停止" },
+    { "id": "research", "lane": "main", "col": 3, "type": "backend", "label": "Research Agent", "sublabel": "主题 → 分页讲稿" },
+    { "id": "design", "lane": "main", "col": 4, "type": "backend", "label": "Design Agent", "sublabel": "讲稿 → HTML 页面" },
+    { "id": "delivery", "lane": "main", "col": 5, "type": "security", "label": "质检与 PPTX", "sublabel": "浏览器 → 导出 → 回读", "tag": "可编辑文件" },
+    { "id": "glm", "lane": "tooling", "col": 2, "type": "cloud", "label": "GLM API", "sublabel": "推理 + tool calling", "tag": "唯一外部服务" },
+    { "id": "mcp", "lane": "tooling", "col": 3, "type": "messagebus", "label": "Local MCP Hub", "sublabel": "stdio / 工具路由" },
+    { "id": "workspace", "lane": "tooling", "col": 4, "type": "database", "label": "受限工作区", "sublabel": "读 / 写 / 改 / 移动", "tag": "禁止越界" }
+  ],
+  "edges": [
+    { "id": "topic_cli", "from": "topic", "to": "cli", "label": "generate", "variant": "default", "role": "main" },
+    { "id": "cli_pipeline", "from": "cli", "to": "pipeline", "label": "GenerationRequest", "variant": "emphasis", "role": "main" },
+    { "id": "pipeline_research", "from": "pipeline", "to": "research", "variant": "default", "role": "main" },
+    { "id": "research_design", "from": "research", "to": "design", "label": "manuscript.md", "variant": "emphasis", "role": "main" },
+    { "id": "design_delivery", "from": "design", "to": "delivery", "variant": "emphasis", "role": "main" },
+    { "id": "research_glm", "from": "research", "to": "glm", "label": "messages + tools", "variant": "dashed", "role": "branch", "fromSide": "bottom", "toSide": "top", "route": "drop", "channelY": 180 },
+    { "id": "glm_mcp", "from": "glm", "to": "mcp", "label": "tool_calls", "variant": "default" },
+    { "id": "mcp_workspace", "from": "mcp", "to": "workspace", "label": "受控文件操作", "variant": "security" },
+    { "id": "workspace_delivery", "from": "workspace", "to": "delivery", "label": "HTML + 检查证据", "variant": "dashed", "role": "branch", "fromSide": "top", "toSide": "bottom", "route": "drop", "channelY": 183 },
+    { "id": "delivery_design", "from": "delivery", "to": "design", "label": "失败：修复并复检", "variant": "security", "role": "error", "fromSide": "top", "toSide": "top", "route": "up-channel", "channelY": 45 }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Docker 被替换的部分",
+      "items": ["容器文件系统 → WorkspaceGuard", "容器浏览器 → 本机 Playwright Chromium", "容器命令执行 → 白名单 MCP 工具"]
+    },
+    {
+      "dot": "emerald",
+      "title": "不变的核心思想",
+      "items": ["Research 与 Design 分阶段", "模型通过结构化工具调用驱动产物", "HTML 先质检，再转换成可编辑 PPTX"]
+    },
+    {
+      "dot": "rose",
+      "title": "失败语义",
+      "items": ["工具失败后本轮 finalize 无效", "HTML 质检不通过必须修复", "PPTX 回读失败则不覆盖目标文件"]
+    }
+  ]
+}
