@@ -96,8 +96,9 @@ class WorkspaceTools:
         """List directories first, then files, with deterministic sorting."""
 
         target = self.guard.resolve(path)
-        entries = sorted(target.iterdir(), key=lambda item: (not item.is_dir(), item.name))
+        entries = sorted(
+            target.iterdir(), key=lambda item: (not item.is_dir(), item.name)
+        )
         return [
-            f"[{'DIR' if entry.is_dir() else 'FILE'}] {entry.name}"
-            for entry in entries
+            f"[{'DIR' if entry.is_dir() else 'FILE'}] {entry.name}" for entry in entries
         ]

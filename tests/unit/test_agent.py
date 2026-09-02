@@ -108,7 +108,10 @@ async def test_agent_prompts_model_to_continue_when_no_tool_is_called() -> None:
 
 async def test_agent_stops_at_turn_limit() -> None:
     llm = ScriptedLLM(
-        [AssistantResponse(content="not done"), AssistantResponse(content="still not done")]
+        [
+            AssistantResponse(content="not done"),
+            AssistantResponse(content="still not done"),
+        ]
     )
     agent = Agent("Research", llm, RecordingTools(), "system", max_turns=2)
 

@@ -16,16 +16,14 @@ async def test_failed_inspection_is_exposed_as_tool_error(
         passed=False,
         width=1280,
         height=720,
-        issues=[
-            InspectionIssue(code="text_overflow", message="Text exceeds its box")
-        ],
+        issues=[InspectionIssue(code="text_overflow", message="Text exceeds its box")],
     )
 
     class FailingInspector:
         def __init__(self, workspace: Path) -> None:
             self.workspace = workspace
 
-        async def __aenter__(self) -> "FailingInspector":
+        async def __aenter__(self) -> FailingInspector:
             return self
 
         async def __aexit__(self, *args: object) -> None:

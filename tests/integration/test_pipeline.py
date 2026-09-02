@@ -3,8 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from pydantic import SecretStr
 from pptx import Presentation
+from pydantic import SecretStr
 
 from localdeck.config import Settings
 from localdeck.llm.protocol import AssistantResponse, ToolCall
@@ -57,7 +57,9 @@ async def test_pipeline_generates_complete_pptx_with_local_tools(
                     "write_file",
                     {
                         "path": "slides/slide_01.html",
-                        "content": valid_slide("AI 的现在", "模型已成为通用信息处理平台。"),
+                        "content": valid_slide(
+                            "AI 的现在", "模型已成为通用信息处理平台。"
+                        ),
                     },
                     "slide-1",
                 ),
@@ -70,7 +72,9 @@ async def test_pipeline_generates_complete_pptx_with_local_tools(
                     "write_file",
                     {
                         "path": "slides/slide_02.html",
-                        "content": valid_slide("AI 的未来", "可靠性与可控性将决定落地速度。"),
+                        "content": valid_slide(
+                            "AI 的未来", "可靠性与可控性将决定落地速度。"
+                        ),
                     },
                     "slide-2",
                 ),
@@ -97,9 +101,6 @@ async def test_pipeline_generates_complete_pptx_with_local_tools(
     manifest = RunManifest.model_validate_json(
         result.manifest.read_text(encoding="utf-8")
     )
-    assert all(
-        manifest.stages[stage].status == "completed" for stage in RunStage
-    )
+    assert all(manifest.stages[stage].status == "completed" for stage in RunStage)
     assert (result.workspace / "history" / "research.jsonl").is_file()
     assert (result.workspace / "history" / "design.jsonl").is_file()
-

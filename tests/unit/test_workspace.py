@@ -35,4 +35,3 @@ def test_guard_accepts_absolute_path_inside_workspace(tmp_path: Path) -> None:
     target = guard.root / "manuscript.md"
 
     assert guard.resolve(target) == target.resolve()
-

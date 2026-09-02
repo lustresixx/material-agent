@@ -41,3 +41,4 @@ class LLMClient(Protocol):
     ) -> AssistantResponse:
         """Return one assistant turn for the supplied conversation and tools."""
 
+        ...

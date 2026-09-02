@@ -11,6 +11,7 @@ from typing import Any
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
+from mcp.types import TextContent
 from pydantic import BaseModel, Field
 
 
@@ -50,7 +51,7 @@ class LocalMCPClient:
         self._stack: AsyncExitStack | None = None
         self._session: ClientSession | None = None
 
-    async def __aenter__(self) -> "LocalMCPClient":
+    async def __aenter__(self) -> LocalMCPClient:
         self.workspace.mkdir(parents=True, exist_ok=True)
         stack = AsyncExitStack()
 
@@ -65,9 +66,13 @@ class LocalMCPClient:
             args=["-m", self.server_module],
             env=child_env,
         )
-        reader, writer = await stack.enter_async_context(stdio_client(params))
-        session = await stack.enter_async_context(ClientSession(reader, writer))
-        await session.initialize()
+        try:
+            reader, writer = await stack.enter_async_context(stdio_client(params))
+            session = await stack.enter_async_context(ClientSession(reader, writer))
+            await session.initialize()
+        except BaseException:
+            await stack.aclose()
+            raise
         self._stack = stack
         self._session = session
         return self
@@ -108,7 +113,7 @@ class LocalMCPClient:
 
         response = await self._require_session().call_tool(name, arguments or {})
         texts = [
-            block.text for block in response.content if getattr(block, "type", None) == "text"
+            block.text for block in response.content if isinstance(block, TextContent)
         ]
         return MCPToolResult(
             text="\n".join(texts),
@@ -136,16 +141,21 @@ class LocalToolHub:
         self._tools: dict[str, tuple[MCPTool, LocalMCPClient]] = {}
         self.history: list[dict[str, Any]] = []
 
-    async def __aenter__(self) -> "LocalToolHub":
+    async def __aenter__(self) -> LocalToolHub:
         stack = AsyncExitStack()
-        for module in self.server_modules:
-            client = await stack.enter_async_context(
-                LocalMCPClient(module, self.workspace)
-            )
-            for tool in await client.list_tools():
-                if tool.name in self._tools:
-                    raise ValueError(f"Duplicate MCP tool name: {tool.name}")
-                self._tools[tool.name] = (tool, client)
+        try:
+            for module in self.server_modules:
+                client = await stack.enter_async_context(
+                    LocalMCPClient(module, self.workspace)
+                )
+                for tool in await client.list_tools():
+                    if tool.name in self._tools:
+                        raise ValueError(f"Duplicate MCP tool name: {tool.name}")
+                    self._tools[tool.name] = (tool, client)
+        except BaseException:
+            self._tools.clear()
+            await stack.aclose()
+            raise
         self._stack = stack
         return self
 
@@ -163,9 +173,7 @@ class LocalToolHub:
     async def list_tools(self) -> list[MCPTool]:
         return [entry[0] for entry in self._tools.values()]
 
-    async def call_tool(
-        self, name: str, arguments: dict[str, Any]
-    ) -> MCPToolResult:
+    async def call_tool(self, name: str, arguments: dict[str, Any]) -> MCPToolResult:
         if name not in self._tools:
             return MCPToolResult(text=f"Unknown tool: {name}", is_error=True)
         result = await self._tools[name][1].call_tool(name, arguments)
@@ -188,12 +196,14 @@ class FilteredTools:
 
     async def list_tools(self) -> list[MCPTool]:
         return [
-            tool for tool in await self.provider.list_tools() if tool.name in self.allowed
+            tool
+            for tool in await self.provider.list_tools()
+            if tool.name in self.allowed
         ]
 
-    async def call_tool(
-        self, name: str, arguments: dict[str, Any]
-    ) -> MCPToolResult:
+    async def call_tool(self, name: str, arguments: dict[str, Any]) -> MCPToolResult:
         if name not in self.allowed:
-            return MCPToolResult(text=f"Tool is not available in this stage: {name}", is_error=True)
+            return MCPToolResult(
+                text=f"Tool is not available in this stage: {name}", is_error=True
+            )
         return await self.provider.call_tool(name, arguments)

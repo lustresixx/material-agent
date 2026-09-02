@@ -4,7 +4,6 @@ from pathlib import Path
 
 from localdeck.quality import SlideInspector
 
-
 FIXTURES = Path(__file__).parents[1] / "fixtures" / "slides"
 
 

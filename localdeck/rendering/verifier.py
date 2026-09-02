@@ -30,7 +30,7 @@ class PPTXVerifier:
         if not path.is_file() or path.stat().st_size == 0:
             raise PPTXVerificationError(f"PPTX does not exist or is empty: {path}")
         try:
-            presentation = Presentation(path)
+            presentation = Presentation(str(path))
         except Exception as error:
             raise PPTXVerificationError(f"PPTX cannot be opened: {error}") from error
 
@@ -41,11 +41,11 @@ class PPTXVerifier:
             )
 
         shapes = [shape for slide in presentation.slides for shape in slide.shapes]
-        text_shapes = [
-            shape
-            for shape in shapes
-            if getattr(shape, "has_text_frame", False) and shape.text.strip()
-        ]
+        text_shapes = []
+        for shape in shapes:
+            text = getattr(shape, "text", "")
+            if getattr(shape, "has_text_frame", False) and text.strip():
+                text_shapes.append(shape)
         if not shapes or not text_shapes:
             raise PPTXVerificationError("PPTX contains no editable text content")
         return PPTXVerification(
@@ -54,4 +54,3 @@ class PPTXVerifier:
             shape_count=len(shapes),
             text_shape_count=len(text_shapes),
         )
-

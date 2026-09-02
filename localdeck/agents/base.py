@@ -19,10 +19,12 @@ class ToolProvider(Protocol):
     async def list_tools(self) -> list[MCPTool]:
         """Return tools visible to the current Agent."""
 
-    async def call_tool(
-        self, name: str, arguments: dict[str, Any]
-    ) -> MCPToolResult:
+        ...
+
+    async def call_tool(self, name: str, arguments: dict[str, Any]) -> MCPToolResult:
         """Execute a tool and return a normalized text result."""
+
+        ...
 
 
 class Agent:

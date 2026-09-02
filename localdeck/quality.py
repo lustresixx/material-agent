@@ -26,7 +26,7 @@ class SlideInspector:
         self._browser: Browser | None = None
         self._context: BrowserContext | None = None
 
-    async def __aenter__(self) -> "SlideInspector":
+    async def __aenter__(self) -> SlideInspector:
         self._playwright = await async_playwright().start()
         self._browser = await self._playwright.chromium.launch(headless=True)
         return self
@@ -55,7 +55,9 @@ class SlideInspector:
         """Inspect one page and write a JSON receipt plus a PNG screenshot."""
 
         if self._browser is None:
-            raise RuntimeError("SlideInspector must be used as an async context manager")
+            raise RuntimeError(
+                "SlideInspector must be used as an async context manager"
+            )
         html_path = self.guard.resolve(html_file)
         if html_path.suffix.lower() != ".html" or not html_path.is_file():
             raise ValueError(f"Slide HTML does not exist: {html_path}")
@@ -104,8 +106,10 @@ class SlideInspector:
                 if (style.display === 'none' || style.visibility === 'hidden' ||
                     rect.width === 0 || rect.height === 0) continue;
 
+                const outsideRight = rect.right > expectedWidth + 1;
+                const outsideBottom = rect.bottom > expectedHeight + 1;
                 if (rect.left < -1 || rect.top < -1 ||
-                    rect.right > expectedWidth + 1 || rect.bottom > expectedHeight + 1) {
+                    outsideRight || outsideBottom) {
                   bounds.push(selector(element));
                 }
 
@@ -127,8 +131,9 @@ class SlideInspector:
               return {
                 bodyWidth: Math.round(bodyRect.width),
                 bodyHeight: Math.round(bodyRect.height),
-                pageOverflow: document.documentElement.scrollWidth > expectedWidth + 1 ||
-                              document.documentElement.scrollHeight > expectedHeight + 1,
+                pageOverflow:
+                  document.documentElement.scrollWidth > expectedWidth + 1 ||
+                  document.documentElement.scrollHeight > expectedHeight + 1,
                 bounds,
                 textOverflow,
                 missingImages,
@@ -209,4 +214,3 @@ class SlideInspector:
                 )
             )
         return issues
-

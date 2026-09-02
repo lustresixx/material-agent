@@ -1,12 +1,12 @@
 from __future__ import annotations
 
+from contextlib import suppress
 from pathlib import Path
 
 from pptx import Presentation
 
 from localdeck.rendering.exporter import HTMLExporter
 from localdeck.rendering.verifier import PPTXVerifier
-
 
 FIXTURE = Path(__file__).parents[1] / "fixtures" / "slides" / "valid.html"
 
@@ -45,9 +45,7 @@ async def test_exporter_does_not_replace_existing_output_on_failure(
     output = tmp_path / "deck.pptx"
     output.write_bytes(b"existing")
 
-    try:
+    with suppress(Exception):
         await HTMLExporter().export(slides_dir, output, "16:9")
-    except Exception:
-        pass
 
     assert output.read_bytes() == b"existing"

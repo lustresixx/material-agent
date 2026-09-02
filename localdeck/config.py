@@ -30,7 +30,7 @@ class Settings(BaseModel):
     design_max_turns: int = Field(default=20, ge=1, le=100)
 
     @classmethod
-    def from_env(cls) -> "Settings":
+    def from_env(cls) -> Settings:
         """Build settings from environment variables without loading secret files."""
 
         api_key = os.getenv("ZAI_API_KEY", "").strip()
@@ -49,4 +49,3 @@ class Settings(BaseModel):
             .expanduser()
             .resolve(),
         )
-

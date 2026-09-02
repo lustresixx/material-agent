@@ -37,7 +37,7 @@ class HTMLExporter:
         output: Path,
         aspect_ratio: Literal["16:9", "4:3"] = "16:9",
     ) -> Path:
-        """Export sorted slide HTML files and atomically replace ``output`` on success."""
+        """Export slide HTML files and atomically replace ``output`` on success."""
 
         html_files = sorted(slides_dir.glob("slide_*.html"))
         if not html_files:
@@ -61,7 +61,9 @@ class HTMLExporter:
             spec_file.write_text(
                 json.dumps(specification, ensure_ascii=False), encoding="utf-8"
             )
-            renderer = Path(__file__).parents[1] / "vendor" / "html2pptx" / "render_pptx.js"
+            renderer = (
+                Path(__file__).parents[1] / "vendor" / "html2pptx" / "render_pptx.js"
+            )
             process = await asyncio.create_subprocess_exec(
                 node,
                 str(renderer),
@@ -147,7 +149,9 @@ _DOM_EXTRACTOR = """
       fontWeight: style.fontWeight,
       fontStyle: style.fontStyle,
       textAlign: style.textAlign,
-      lineHeight: parseFloat(style.lineHeight) || 1.2 * (parseFloat(style.fontSize) || 18),
+      lineHeight:
+        parseFloat(style.lineHeight) ||
+        1.2 * (parseFloat(style.fontSize) || 18),
       opacity: Number(style.opacity),
     };
   };
@@ -186,4 +190,3 @@ _DOM_EXTRACTOR = """
   };
 }
 """
-

@@ -42,9 +42,9 @@ class DesignAgent(Agent):
         """Run visual generation and require a passing receipt for every slide."""
 
         prompt = (
-            f"文稿路径：{manuscript}\n"
-            f"幻灯片页数：{expected_slides}\n"
-            f"页面比例：{aspect_ratio}\n"
+            f"文稿路径: {manuscript}\n"
+            f"幻灯片页数: {expected_slides}\n"
+            f"页面比例: {aspect_ratio}\n"
             "请逐页生成、检查并修正 HTML。"
         )
         outcome = await self.run(prompt)
@@ -58,7 +58,9 @@ class DesignAgent(Agent):
             raise DesignValidationError("slides/global.css is missing")
 
         html_files = sorted(slides_dir.glob("slide_*.html"))
-        expected_names = [f"slide_{index:02d}.html" for index in range(1, expected_slides + 1)]
+        expected_names = [
+            f"slide_{index:02d}.html" for index in range(1, expected_slides + 1)
+        ]
         actual_names = [path.name for path in html_files]
         if actual_names != expected_names:
             raise DesignValidationError(

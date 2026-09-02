@@ -18,7 +18,9 @@ class ScriptedLLM:
         self.responses = iter(responses)
         self.requests: list[list[dict]] = []
 
-    async def complete(self, messages: list[dict], tools: list[dict]) -> AssistantResponse:
+    async def complete(
+        self, messages: list[dict], tools: list[dict]
+    ) -> AssistantResponse:
         self.requests.append([dict(message) for message in messages])
         return next(self.responses)
 
@@ -57,7 +59,9 @@ class StageTools:
                 )
                 report_path = self.workspace / "inspections" / f"{html_file.stem}.json"
                 report_path.parent.mkdir(parents=True, exist_ok=True)
-                report_path.write_text(report.model_dump_json(indent=2), encoding="utf-8")
+                report_path.write_text(
+                    report.model_dump_json(indent=2), encoding="utf-8"
+                )
                 return MCPToolResult(
                     text=report.model_dump_json(), is_error=not report.passed
                 )
@@ -69,4 +73,3 @@ class StageTools:
         except Exception as error:
             return MCPToolResult(text=str(error), is_error=True)
         return MCPToolResult(text=f"Unknown tool: {name}", is_error=True)
-

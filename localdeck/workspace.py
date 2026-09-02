@@ -34,4 +34,3 @@ class WorkspaceGuard:
                 f"Path is outside workspace {self.root}: {requested}"
             )
         return candidate
-

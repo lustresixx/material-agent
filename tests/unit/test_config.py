@@ -29,4 +29,3 @@ def test_settings_read_safe_defaults(
     assert settings.runs_dir == (tmp_path / "runs").resolve()
     assert secret not in repr(settings)
     assert secret not in settings.model_dump_json()
-

@@ -29,19 +29,15 @@ class ResearchAgent(Agent):
     def __init__(
         self, llm: LLMClient, tools: ToolProvider, *, max_turns: int = 8
     ) -> None:
-        super().__init__(
-            "Research", llm, tools, _system_prompt(), max_turns=max_turns
-        )
+        super().__init__("Research", llm, tools, _system_prompt(), max_turns=max_turns)
 
-    async def generate(
-        self, request: GenerationRequest, workspace: Path
-    ) -> Path:
+    async def generate(self, request: GenerationRequest, workspace: Path) -> Path:
         """Run content generation and enforce file type and exact page count."""
 
         prompt = (
-            f"主题：{request.topic}\n"
-            f"页数：{request.slides}\n"
-            f"语言：{request.language}\n"
+            f"主题: {request.topic}\n"
+            f"页数: {request.slides}\n"
+            f"语言: {request.language}\n"
             "请创建完整的分页演示文稿。"
         )
         outcome = await self.run(prompt)
@@ -59,4 +55,3 @@ class ResearchAgent(Agent):
                 f"found {len(pages)}"
             )
         return manuscript
-

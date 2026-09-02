@@ -30,7 +30,7 @@ def test_generation_request_rejects_invalid_slide_count(
 
 
 def test_generation_request_requires_pptx_output(tmp_path: Path) -> None:
-    with pytest.raises(ValidationError, match=".pptx"):
+    with pytest.raises(ValidationError, match=r"\.pptx"):
         GenerationRequest(topic="topic", slides=3, output=tmp_path / "x.pdf")
 
 

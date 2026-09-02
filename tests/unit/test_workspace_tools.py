@@ -33,9 +33,7 @@ def test_edit_file_requires_exact_replacement_count(tools: WorkspaceTools) -> No
     with pytest.raises(ValueError, match="expected 1"):
         tools.edit_file("slide.html", "old", "new")
 
-    result = tools.edit_file(
-        "slide.html", "old", "new", expected_replacements=2
-    )
+    result = tools.edit_file("slide.html", "old", "new", expected_replacements=2)
     assert result["replacements"] == 2
     assert tools.read_file("slide.html") == "new new"
 

@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 
 def write_json(path: Path, value: Any) -> None:
@@ -25,4 +26,3 @@ def write_jsonl(path: Path, records: Iterable[Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     lines = [json.dumps(record, ensure_ascii=False, default=str) for record in records]
     path.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
-

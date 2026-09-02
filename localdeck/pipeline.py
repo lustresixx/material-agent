@@ -141,4 +141,3 @@ class LocalDeckPipeline:
             temporary.replace(output)
         finally:
             temporary.unlink(missing_ok=True)
-
