@@ -43,7 +43,7 @@ def test_writes_safe_side_by_side_report_with_stable_slide_ids(
             ),
         ),
     )
-    secret = "a70120-secret-must-not-leak"
+    secret = "synthetic-secret-must-not-leak"
 
     result = write_comparison_report(
         plan=plan,

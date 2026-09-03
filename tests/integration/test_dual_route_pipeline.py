@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 from PIL import Image
 from pydantic import SecretStr
 
@@ -76,6 +77,25 @@ async def test_one_route_failure_does_not_discard_the_other(
     assert manifest["routes"]["template"]["status"] == "completed"
     assert manifest["routes"]["html"]["status"] == "failed"
     assert "synthetic HTML failure" in manifest["routes"]["html"]["error"]
+
+
+async def test_fails_when_no_selected_route_can_be_published(
+    tmp_path: Path,
+) -> None:
+    request = _request(tmp_path).model_copy(
+        update={"routes": (GenerationRoute.HTML,)}
+    )
+    pipeline = TemplateDeckPipeline(
+        _settings(tmp_path),
+        llm=ScriptedLLM([]),
+        search=_Search(),
+        reader=_Reader(),
+        preview_renderer=_PreviewRenderer(),
+        html_generator=_FailingHtmlGenerator(),
+    )
+
+    with pytest.raises(RuntimeError, match="No selected route passed"):
+        await pipeline.generate(request)
 
 
 def _request(tmp_path: Path) -> TemplateGenerationRequest:

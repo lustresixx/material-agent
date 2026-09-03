@@ -628,6 +628,10 @@ class TemplateDeckPipeline:
                     workspace / "comparison" / "comparison_assets",
                     request.output_dir / "comparison_assets",
                 )
+        if not published:
+            error = RuntimeError("No selected route passed the final quality gate")
+            self._finish_failed(manifest, stage, error, timer, manifest_path)
+            raise error
         self._finish_completed(
             manifest, stage, request.output_dir, timer, manifest_path
         )
