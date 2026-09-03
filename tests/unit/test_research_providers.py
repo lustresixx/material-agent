@@ -22,7 +22,7 @@ class FakeRemoteClient:
 async def test_coding_plan_search_normalizes_remote_results() -> None:
     client = FakeRemoteClient(
         {
-            "webSearchPrime": {
+            "web_search_prime": {
                 "results": [
                     {
                         "title": "Huawei report",
@@ -42,8 +42,11 @@ async def test_coding_plan_search_normalizes_remote_results() -> None:
     assert hits[0].published_at is None
     assert client.calls == [
         (
-            "webSearchPrime",
-            {"query": "Huawei annual report", "domain": "huawei.com"},
+            "web_search_prime",
+            {
+                "search_query": "Huawei annual report",
+                "search_domain_filter": "huawei.com",
+            },
         )
     ]
 

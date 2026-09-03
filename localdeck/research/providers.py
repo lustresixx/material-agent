@@ -47,10 +47,10 @@ class CodingPlanSearchProvider:
     async def search(
         self, query: str, *, domain: str | None = None
     ) -> list[SearchHit]:
-        arguments = {"query": query}
+        arguments = {"search_query": query}
         if domain:
-            arguments["domain"] = domain
-        result = await self.client.call_tool("webSearchPrime", arguments)
+            arguments["search_domain_filter"] = domain
+        result = await self.client.call_tool("web_search_prime", arguments)
         _raise_tool_error(result)
         payload = _parse_object(result.text)
         raw_hits = _result_list(payload)
@@ -114,7 +114,7 @@ def _result_list(payload: Mapping[str, Any] | list[Any]) -> list[Mapping[str, An
         if isinstance(raw, Mapping):
             raw = raw.get("results") or raw.get("items") or []
     if not isinstance(raw, list):
-        raise ValueError("webSearchPrime returned an invalid result list")
+        raise ValueError("web_search_prime returned an invalid result list")
     return [item for item in raw if isinstance(item, Mapping)]
 
 
