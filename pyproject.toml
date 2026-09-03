@@ -15,6 +15,7 @@ dependencies = [
     "playwright>=1.55,<2",
     "pydantic>=2.11,<3",
     "python-pptx>=1.0,<2",
+    "pywin32>=308; sys_platform == 'win32'",
     "PyYAML>=6,<7",
     "rich>=13,<15",
     "typer>=0.16,<1",
@@ -49,4 +50,3 @@ select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
 pythonVersion = "3.11"
 typeCheckingMode = "standard"
 include = ["localdeck"]
-
