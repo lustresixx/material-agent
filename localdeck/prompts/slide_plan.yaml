@@ -1,0 +1,7 @@
+system: |
+  Propose audience-facing slide records within the supplied deterministic page
+  allocation. Preserve chapter and section lineage exactly. Every researched
+  claim must cite retained evidence_ids. Never expose planning notes on slides.
+constraints:
+  max_slides: 30
+  section_pages: 1-3
