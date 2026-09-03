@@ -7,6 +7,9 @@ from pathlib import Path
 from pptx import Presentation
 from pydantic import BaseModel
 
+from localdeck.planning.models import SlidePlan
+from localdeck.quality.deck import FinalDeckQualityGate
+
 
 class PPTXVerificationError(ValueError):
     """Raised when a generated PPTX cannot satisfy the output contract."""
@@ -54,3 +57,22 @@ class PPTXVerifier:
             shape_count=len(shapes),
             text_shape_count=len(text_shapes),
         )
+
+    def verify_final(
+        self,
+        path: Path,
+        *,
+        plan: SlidePlan,
+        required_brand_names: tuple[str, ...] = (),
+    ) -> PPTXVerification:
+        """Require both structural validity and final-deck quality gates."""
+        verification = self.verify(path, expected_slides=len(plan.slides))
+        report = FinalDeckQualityGate().inspect(
+            path,
+            plan=plan,
+            required_brand_names=required_brand_names,
+        )
+        if not report.passed:
+            codes = ", ".join(sorted(report.codes))
+            raise PPTXVerificationError(f"Final PPTX quality failed: {codes}")
+        return verification
