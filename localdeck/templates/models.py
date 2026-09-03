@@ -69,6 +69,10 @@ class EditableSlot(ImmutableTemplateModel):
     slot_type: SlotType
     edit_policy: EditPolicy
     capacity: CapacityProfile = Field(default_factory=CapacityProfile)
+    x: float = Field(default=0, ge=0)
+    y: float = Field(default=0, ge=0)
+    width: float = Field(default=0, ge=0)
+    height: float = Field(default=0, ge=0)
 
 
 class LayoutFrame(ImmutableTemplateModel):
@@ -81,6 +85,8 @@ class LayoutFrame(ImmutableTemplateModel):
     capacity: CapacityProfile = Field(default_factory=CapacityProfile)
     editable_slots: tuple[EditableSlot, ...] = ()
     preserve_shape_ids: tuple[int, ...] = ()
+    source_shape_ids: tuple[int, ...] = ()
+    classification_confidence: float = Field(default=0.0, ge=0, le=1)
 
     @field_validator("preserve_shape_ids")
     @classmethod
@@ -102,6 +108,10 @@ class ComponentSpec(ImmutableTemplateModel):
     slot_type: SlotType
     edit_policy: EditPolicy
     capacity: CapacityProfile = Field(default_factory=CapacityProfile)
+    x: float = Field(default=0, ge=0)
+    y: float = Field(default=0, ge=0)
+    width: float = Field(default=0, ge=0)
+    height: float = Field(default=0, ge=0)
 
     @field_validator("source_shape_ids")
     @classmethod
@@ -163,3 +173,12 @@ class TemplatePackage(ImmutableTemplateModel):
         if any(not path.is_relative_to(self.root) for path in artifact_paths):
             raise ValueError("artifact path is outside template package root")
         return self
+
+
+class TemplateInspection(ImmutableTemplateModel):
+    """Complete deterministic inventory produced before package persistence."""
+
+    manifest: TemplateManifest
+    theme: ThemeProfile
+    layouts: tuple[LayoutFrame, ...]
+    components: tuple[ComponentSpec, ...]
