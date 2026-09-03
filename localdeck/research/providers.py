@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 from collections.abc import Mapping
 from typing import Any, Protocol
@@ -99,6 +100,10 @@ class CodingPlanPageReader:
 
 def _parse_object(text: str) -> Mapping[str, Any] | list[Any]:
     payload = json.loads(text)
+    if isinstance(payload, str):
+        # Coding Plan MCP frequently wraps its JSON payload in another JSON string.
+        with contextlib.suppress(json.JSONDecodeError):
+            payload = json.loads(payload)
     if not isinstance(payload, (Mapping, list)):
         raise ValueError("research MCP returned invalid JSON")
     return payload

@@ -16,7 +16,9 @@ class FakeRemoteClient:
         self, name: str, arguments: dict[str, Any]
     ) -> MCPToolResult:
         self.calls.append((name, arguments))
-        return MCPToolResult(text=json.dumps(self.responses[name]))
+        response = self.responses[name]
+        text = response if isinstance(response, str) else json.dumps(response)
+        return MCPToolResult(text=text)
 
 
 async def test_coding_plan_search_normalizes_remote_results() -> None:
@@ -61,6 +63,26 @@ async def test_coding_plan_search_treats_empty_response_as_no_results() -> None:
     hits = await CodingPlanSearchProvider(EmptyResponseClient()).search("query")
 
     assert hits == []
+
+
+async def test_coding_plan_search_unwraps_json_string_payload() -> None:
+    payload = {
+        "results": [
+            {
+                "title": "Nested report",
+                "link": "https://huawei.com/nested",
+                "description": "Double-encoded JSON",
+            }
+        ]
+    }
+    client = FakeRemoteClient({})
+    client.responses["web_search_prime"] = json.dumps(
+        json.dumps(payload, ensure_ascii=False), ensure_ascii=False
+    )
+
+    hits = await CodingPlanSearchProvider(client).search("Huawei report")
+
+    assert hits[0].url == "https://huawei.com/nested"
 
 
 async def test_coding_plan_reader_strips_credentials_from_evidence() -> None:
