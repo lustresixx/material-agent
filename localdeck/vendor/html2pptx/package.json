@@ -2,11 +2,13 @@
   "name": "localdeck-html2pptx",
   "version": "0.1.0",
   "private": true,
-  "description": "Trusted renderer for LocalDeck's browser-extracted slide model",
+  "description": "High-fidelity HTML/CSS to editable PowerPoint converter",
   "license": "MIT",
   "dependencies": {
+    "fast-glob": "^3.3.3",
     "minimist": "^1.2.8",
-    "pptxgenjs": "^4.0.1"
+    "playwright": "^1.57.0",
+    "pptxgenjs": "^4.0.1",
+    "sharp": "^0.34.5"
   }
 }
-
