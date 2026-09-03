@@ -51,6 +51,18 @@ async def test_coding_plan_search_normalizes_remote_results() -> None:
     ]
 
 
+async def test_coding_plan_search_treats_empty_response_as_no_results() -> None:
+    class EmptyResponseClient:
+        async def call_tool(
+            self, name: str, arguments: dict[str, Any]
+        ) -> MCPToolResult:
+            return MCPToolResult(text="")
+
+    hits = await CodingPlanSearchProvider(EmptyResponseClient()).search("query")
+
+    assert hits == []
+
+
 async def test_coding_plan_reader_strips_credentials_from_evidence() -> None:
     client = FakeRemoteClient(
         {

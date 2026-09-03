@@ -52,6 +52,8 @@ class CodingPlanSearchProvider:
             arguments["search_domain_filter"] = domain
         result = await self.client.call_tool("web_search_prime", arguments)
         _raise_tool_error(result)
+        if not result.text.strip():
+            return []
         payload = _parse_object(result.text)
         raw_hits = _result_list(payload)
         return [
