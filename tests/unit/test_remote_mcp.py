@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from types import SimpleNamespace
@@ -51,6 +52,26 @@ class FakeSession:
             content=[TextContent(type="text", text=f"{name}:ok")],
             isError=False,
         )
+
+
+class ConcurrentFakeSession(FakeSession):
+    """Expose whether a shared session receives overlapping tool requests."""
+
+    active_calls = 0
+    max_active_calls = 0
+
+    async def call_tool(
+        self, name: str, arguments: dict[str, Any]
+    ) -> SimpleNamespace:
+        type(self).active_calls += 1
+        type(self).max_active_calls = max(
+            type(self).max_active_calls, type(self).active_calls
+        )
+        try:
+            await asyncio.sleep(0)
+            return await super().call_tool(name, arguments)
+        finally:
+            type(self).active_calls -= 1
 
 
 @pytest.mark.asyncio
@@ -146,3 +167,37 @@ async def test_remote_client_closes_transport_when_initialization_fails(
     assert FakeSession.exited is True
     assert transport_exited is True
     FakeSession.fail_initialize = False
+
+
+@pytest.mark.asyncio
+async def test_remote_client_serializes_concurrent_tool_calls(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A shared Streamable HTTP session must not receive overlapping requests."""
+
+    @asynccontextmanager
+    async def fake_streamablehttp_client(
+        url: str,
+        *,
+        headers: dict[str, str],
+        timeout: float,
+        sse_read_timeout: float,
+    ) -> AsyncIterator[tuple[object, object, object]]:
+        yield object(), object(), object()
+
+    monkeypatch.setattr(
+        remote_module, "streamablehttp_client", fake_streamablehttp_client
+    )
+    monkeypatch.setattr(remote_module, "ClientSession", ConcurrentFakeSession)
+    ConcurrentFakeSession.max_active_calls = 0
+    client = RemoteMCPClient(
+        "https://search.example/mcp", SecretStr("coding-plan-secret")
+    )
+
+    async with client:
+        await asyncio.gather(
+            client.call_tool("webSearchPrime", {"query": "first"}),
+            client.call_tool("webSearchPrime", {"query": "second"}),
+        )
+
+    assert ConcurrentFakeSession.max_active_calls == 1

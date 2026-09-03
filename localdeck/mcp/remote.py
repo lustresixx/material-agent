@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from contextlib import AsyncExitStack
 from types import TracebackType
 from typing import Any
@@ -33,6 +34,7 @@ class RemoteMCPClient:
         self.sse_read_timeout = sse_read_timeout
         self._stack: AsyncExitStack | None = None
         self._session: ClientSession | None = None
+        self._call_lock = asyncio.Lock()
         self.history: list[dict[str, Any]] = []
 
     async def __aenter__(self) -> RemoteMCPClient:
@@ -92,7 +94,9 @@ class RemoteMCPClient:
     ) -> MCPToolResult:
         """Call a remote tool and retain only sanitized audit history."""
         call_arguments = arguments or {}
-        response = await self._require_session().call_tool(name, call_arguments)
+        # A Streamable HTTP session must not receive overlapping SSE requests.
+        async with self._call_lock:
+            response = await self._require_session().call_tool(name, call_arguments)
         texts = [
             block.text for block in response.content if isinstance(block, TextContent)
         ]
