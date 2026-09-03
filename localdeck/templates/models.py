@@ -69,8 +69,8 @@ class EditableSlot(ImmutableTemplateModel):
     slot_type: SlotType
     edit_policy: EditPolicy
     capacity: CapacityProfile = Field(default_factory=CapacityProfile)
-    x: float = Field(default=0, ge=0)
-    y: float = Field(default=0, ge=0)
+    x: float = 0
+    y: float = 0
     width: float = Field(default=0, ge=0)
     height: float = Field(default=0, ge=0)
 
@@ -108,8 +108,8 @@ class ComponentSpec(ImmutableTemplateModel):
     slot_type: SlotType
     edit_policy: EditPolicy
     capacity: CapacityProfile = Field(default_factory=CapacityProfile)
-    x: float = Field(default=0, ge=0)
-    y: float = Field(default=0, ge=0)
+    x: float = 0
+    y: float = 0
     width: float = Field(default=0, ge=0)
     height: float = Field(default=0, ge=0)
 

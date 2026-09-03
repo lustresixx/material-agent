@@ -93,3 +93,44 @@ def test_template_inventory_models_are_immutable() -> None:
 
     with pytest.raises(ValidationError, match="frozen"):
         layout.family = "changed"
+
+
+def test_template_geometry_allows_shapes_that_extend_beyond_slide_edges() -> None:
+    slot = EditableSlot(
+        source_shape_id=9,
+        name="off-canvas-decoration",
+        slot_type=SlotType.BODY,
+        edit_policy=EditPolicy.REPLACE_TEXT,
+        x=-0.25,
+        y=-0.1,
+        width=2.0,
+        height=1.0,
+    )
+    component = ComponentSpec(
+        component_id="off-canvas-component",
+        source_slide_number=1,
+        source_shape_ids=(9,),
+        slot_type=SlotType.BODY,
+        edit_policy=EditPolicy.REPLACE_TEXT,
+        x=-0.25,
+        y=-0.1,
+        width=2.0,
+        height=1.0,
+    )
+
+    assert slot.x == -0.25
+    assert slot.y == -0.1
+    assert component.x == -0.25
+    assert component.y == -0.1
+
+
+def test_template_geometry_still_rejects_negative_dimensions() -> None:
+    with pytest.raises(ValidationError, match="greater than or equal to 0"):
+        EditableSlot(
+            source_shape_id=9,
+            name="invalid-size",
+            slot_type=SlotType.BODY,
+            edit_policy=EditPolicy.REPLACE_TEXT,
+            width=-1,
+            height=1,
+        )
