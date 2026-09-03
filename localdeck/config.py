@@ -32,7 +32,7 @@ class Settings(BaseModel):
     )
     reader_mcp_url: str = "https://open.bigmodel.cn/api/mcp/web_reader/mcp"
     research_concurrency: int = Field(default=4, ge=1, le=12)
-    html_batch_size: int = Field(default=3, ge=1, le=4)
+    html_batch_size: int = Field(default=3, ge=2, le=4)
     max_repairs: int = Field(default=2, ge=0, le=5)
     request_timeout_seconds: float = Field(default=120.0, gt=0)
     max_retries: int = Field(default=3, ge=0, le=10)
