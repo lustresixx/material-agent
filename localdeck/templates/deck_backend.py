@@ -47,6 +47,10 @@ class TemplateDeckBackend(Protocol):
         """Replace one picture while retaining its frame geometry and crop."""
         ...
 
+    def delete_shape(self, slide_index: int, shape_id: int) -> None:
+        """Delete replaceable sample content from one cloned frame."""
+        ...
+
     def save(self, output: Path) -> Path:
         """Save the current working presentation."""
         ...

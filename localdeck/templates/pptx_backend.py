@@ -105,6 +105,12 @@ class PptxTemplateBackend:
         properties.set("id", str(shape_id))
         properties.set("name", old_picture.name)
 
+    def delete_shape(self, slide_index: int, shape_id: int) -> None:
+        """Delete one source shape after its sample content is rejected."""
+        shape = self._find_shape(slide_index, shape_id)
+        element = shape.element
+        element.getparent().remove(element)
+
     def save(self, output: Path) -> Path:
         """Atomically write the current editable presentation to disk."""
         presentation = self._require_presentation()
