@@ -22,7 +22,7 @@ class Settings(BaseModel):
 
     api_key: SecretStr = Field(repr=False)
     model: str = "glm-5.2"
-    base_url: str = "https://open.bigmodel.cn/api/paas/v4/"
+    base_url: str = "https://open.bigmodel.cn/api/coding/paas/v4"
     runs_dir: Path = Field(default_factory=lambda: Path("runs").resolve())
     request_timeout_seconds: float = Field(default=120.0, gt=0)
     max_retries: int = Field(default=3, ge=0, le=10)
@@ -43,7 +43,8 @@ class Settings(BaseModel):
             api_key=SecretStr(api_key),
             model=os.getenv("LOCALDECK_MODEL", "glm-5.2").strip() or "glm-5.2",
             base_url=os.getenv(
-                "LOCALDECK_BASE_URL", "https://open.bigmodel.cn/api/paas/v4/"
+                "LOCALDECK_BASE_URL",
+                "https://open.bigmodel.cn/api/coding/paas/v4",
             ).strip(),
             runs_dir=Path(os.getenv("LOCALDECK_RUNS_DIR", "runs"))
             .expanduser()

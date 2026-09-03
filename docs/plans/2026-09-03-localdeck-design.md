@@ -121,7 +121,7 @@ Quality Server 通过 Playwright 加载本地 HTML，并收集：
 
 使用 `openai.AsyncOpenAI` 连接智谱的 OpenAI 兼容端点：
 
-- 默认 Base URL：`https://open.bigmodel.cn/api/paas/v4/`
+- 默认 Base URL：`https://open.bigmodel.cn/api/coding/paas/v4`
 - 默认模型：`glm-5.2`
 - API Key：`ZAI_API_KEY`
 - `tool_choice`：`auto`

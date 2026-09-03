@@ -139,7 +139,7 @@ export ZAI_API_KEY="替换成你自己的密钥"
 | 环境变量 | 默认值 | 作用 |
 | --- | --- | --- |
 | `LOCALDECK_MODEL` | `glm-5.2` | 模型名 |
-| `LOCALDECK_BASE_URL` | `https://open.bigmodel.cn/api/paas/v4/` | OpenAI 兼容端点 |
+| `LOCALDECK_BASE_URL` | `https://open.bigmodel.cn/api/coding/paas/v4` | Coding Plan 的 OpenAI Chat Completion 端点 |
 | `LOCALDECK_RUNS_DIR` | `./runs` | 诊断工作区根目录 |
 
 不要把真实密钥写入 `.env`、命令历史、Issue、截图或 Git；已经在聊天或其他外部位置暴露过的密钥应在服务端轮换。

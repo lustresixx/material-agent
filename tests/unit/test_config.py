@@ -25,7 +25,15 @@ def test_settings_read_safe_defaults(
 
     assert settings.api_key.get_secret_value() == secret
     assert settings.model == "glm-5.2"
-    assert settings.base_url == "https://open.bigmodel.cn/api/paas/v4/"
+    assert settings.base_url == "https://open.bigmodel.cn/api/coding/paas/v4"
     assert settings.runs_dir == (tmp_path / "runs").resolve()
     assert secret not in repr(settings)
     assert secret not in settings.model_dump_json()
+
+
+def test_settings_allow_base_url_override(monkeypatch: pytest.MonkeyPatch) -> None:
+    custom_url = "https://example.test/openai/v1"
+    monkeypatch.setenv("ZAI_API_KEY", "test-secret-value")
+    monkeypatch.setenv("LOCALDECK_BASE_URL", custom_url)
+
+    assert Settings.from_env().base_url == custom_url
