@@ -69,3 +69,7 @@ async def test_researches_one_task_per_section_with_bounded_concurrency() -> Non
         (2, 2),
     ]
     assert all(claim.evidence_ids for packet in packets for claim in packet.claims)
+    evidence_ids = [
+        evidence.evidence_id for packet in packets for evidence in packet.evidence
+    ]
+    assert len(evidence_ids) == len(set(evidence_ids))

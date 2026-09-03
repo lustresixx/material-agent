@@ -175,9 +175,7 @@ def _write_css(
     width = 1280 if aspect_ratio == "16:9" else 960
     height = 720
     font_stack = ", ".join(f'"{font}"' for font in theme.font_families)
-    palette = list(theme.palette)
-    while len(palette) < 3:
-        palette.append(palette[-1])
+    accent, text_color, background = _accessible_palette(theme.palette)
     global_css = f"""* {{ box-sizing: border-box; }}
 html, body {{
   margin: 0; width: {width}px; height: {height}px; overflow: hidden;
@@ -195,10 +193,10 @@ footer {{
 """
     theme_css = f""":root {{
   --font-family: {font_stack}, sans-serif;
-  --color-accent: {palette[0]};
-  --color-text: {palette[1]};
-  --color-bg: {palette[2]};
-  --color-muted: {palette[1]};
+  --color-accent: {accent};
+  --color-text: {text_color};
+  --color-bg: {background};
+  --color-muted: {text_color};
   --space-1: {theme.spacing[0]}in;
   --space-2: {theme.spacing[min(1, len(theme.spacing) - 1)]}in;
   --space-3: {theme.spacing[min(2, len(theme.spacing) - 1)]}in;
@@ -206,6 +204,38 @@ footer {{
 """
     (slides_dir / "global.css").write_text(global_css, encoding="utf-8")
     (slides_dir / "theme.css").write_text(theme_css, encoding="utf-8")
+
+
+def _accessible_palette(colors: tuple[str, ...]) -> tuple[str, str, str]:
+    ranked = sorted(colors, key=_luminance)
+    darkest = ranked[0]
+    lightest = ranked[-1]
+    text_color = darkest if _contrast(darkest, lightest) >= 4.5 else "#111111"
+    background = lightest if _luminance(lightest) >= 0.7 else "#FFFFFF"
+    accent = next(
+        (color for color in colors if color not in {text_color, background}),
+        colors[0] if colors[0] != background else "#3B5CCC",
+    )
+    return accent, text_color, background
+
+
+def _luminance(color: str) -> float:
+    value = color.lstrip("#")
+    if len(value) != 6:
+        return 0
+    channels = [int(value[index : index + 2], 16) / 255 for index in (0, 2, 4)]
+    linear = [
+        channel / 12.92
+        if channel <= 0.04045
+        else ((channel + 0.055) / 1.055) ** 2.4
+        for channel in channels
+    ]
+    return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
+
+
+def _contrast(first: str, second: str) -> float:
+    bright, dark = sorted((_luminance(first), _luminance(second)), reverse=True)
+    return (bright + 0.05) / (dark + 0.05)
 
 
 def _fallback_html(slide: SlideSpec) -> str:

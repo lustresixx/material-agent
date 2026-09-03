@@ -24,6 +24,7 @@ class QualityIssue(BaseModel):
     code: str
     message: str
     slide_index: int | None = None
+    severity: str = "error"
 
 
 class QualityReport(BaseModel):
@@ -93,6 +94,7 @@ class FinalDeckQualityGate:
                     QualityIssue(
                         code="repeated-layout-silhouette",
                         message="At least 80% of slides repeat one layout silhouette",
+                        severity="warning",
                     )
                 )
         deduplicated = tuple(
@@ -101,7 +103,10 @@ class FinalDeckQualityGate:
                 for issue in issues
             }.values()
         )
-        return QualityReport(passed=not deduplicated, issues=deduplicated)
+        return QualityReport(
+            passed=not any(issue.severity == "error" for issue in deduplicated),
+            issues=deduplicated,
+        )
 
 
 def _silhouette(slide: Any) -> tuple[tuple[int, int, int, int, int], ...]:

@@ -3,9 +3,22 @@
 from __future__ import annotations
 
 import json
+import time
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
+
+
+class StageTimer:
+    """Monotonic stage timer that cannot be affected by clock adjustments."""
+
+    def __enter__(self) -> StageTimer:
+        self._started = time.perf_counter()
+        self.elapsed = 0.0
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        self.elapsed = max(0.0, time.perf_counter() - self._started)
 
 
 def write_json(path: Path, value: Any) -> None:

@@ -19,6 +19,20 @@ class RunStage(StrEnum):
     VERIFY = "verify"
 
 
+class TemplateRunStage(StrEnum):
+    """Observable stages of the structured template-aware pipeline."""
+
+    INPUT = "input"
+    TEMPLATE = "template"
+    RESEARCH = "research"
+    PLAN = "plan"
+    TEMPLATE_ROUTE = "template-route"
+    HTML_ROUTE = "html-route"
+    QUALITY = "quality"
+    COMPARISON = "comparison"
+    PUBLISH = "publish"
+
+
 class GenerationRoute(StrEnum):
     """Available visual generation engines for a template-aware run."""
 
@@ -32,6 +46,39 @@ class StageRecord(BaseModel):
     status: Literal["pending", "running", "completed", "failed"] = "pending"
     artifact: Path | None = None
     error: str | None = None
+
+
+class TemplateRouteRecord(BaseModel):
+    """Terminal state and safe telemetry for one visual route."""
+
+    status: Literal["pending", "running", "completed", "failed", "skipped"] = (
+        "pending"
+    )
+    artifact: Path | None = None
+    error: str | None = None
+    plan_digest: str | None = None
+    duration_seconds: float = Field(default=0, ge=0)
+    model_calls: int = Field(default=0, ge=0)
+    repairs: int = Field(default=0, ge=0)
+    fallback_slides: tuple[str, ...] = ()
+    quality_issues: tuple[str, ...] = ()
+
+
+class TemplateRunManifest(BaseModel):
+    """Durable state for a dual-route run, written after every stage."""
+
+    run_id: str
+    workspace: Path
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    stage_order: list[str] = Field(default_factory=list)
+    stages: dict[str, StageRecord] = Field(default_factory=dict)
+    routes: dict[GenerationRoute, TemplateRouteRecord] = Field(
+        default_factory=lambda: {
+            route: TemplateRouteRecord() for route in GenerationRoute
+        }
+    )
+    timings: dict[str, float] = Field(default_factory=dict)
+    plan_digest: str | None = None
 
 
 class GenerationRequest(BaseModel):
@@ -160,3 +207,15 @@ class GenerationResult(BaseModel):
     manuscript: Path
     slides_dir: Path
     manifest: Path
+
+
+class TemplateGenerationResult(BaseModel):
+    """Published and retained artifacts from a template-aware run."""
+
+    output_dir: Path
+    workspace: Path
+    manifest: Path
+    plan: Path
+    template_output: Path | None = None
+    html_output: Path | None = None
+    comparison: Path | None = None

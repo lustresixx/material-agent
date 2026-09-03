@@ -96,7 +96,10 @@ class ResearchCoordinator:
             except Exception as error:
                 failed.append(FailedPage(url=hit.url, error=str(error)))
                 continue
-            evidence_id = f"evidence-{len(evidence) + 1:02d}"
+            evidence_id = (
+                f"evidence-{job.chapter_index:02d}-{job.section_index:02d}-"
+                f"{len(evidence) + 1:02d}"
+            )
             evidence.append(EvidenceRecord(evidence_id=evidence_id, page=page))
             if self.asset_collector is not None and section_dir is not None:
                 assets.extend(
@@ -105,7 +108,10 @@ class ResearchCoordinator:
 
         claims = tuple(
             ResearchClaim(
-                claim_id=f"claim-{index:02d}",
+                claim_id=(
+                    f"claim-{job.chapter_index:02d}-{job.section_index:02d}-"
+                    f"{index:02d}"
+                ),
                 text=_claim_text(record.page),
                 evidence_ids=(record.evidence_id,),
             )
