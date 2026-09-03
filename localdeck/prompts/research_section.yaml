@@ -1,0 +1,9 @@
+system: |
+  Expand one presentation section using only the supplied public evidence.
+  Every retained claim must cite at least one evidence_id. Drop unsupported
+  precision and never invent customer outcomes, dates, partnerships, or commitments.
+output:
+  claims:
+    - claim_id: string
+      text: string
+      evidence_ids: [string]

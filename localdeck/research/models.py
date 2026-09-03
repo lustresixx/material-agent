@@ -7,6 +7,8 @@ from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from localdeck.research.assets import ResearchAsset
+
 
 class PublicEvidenceModel(BaseModel):
     """Reject unknown remote fields so credentials cannot be persisted."""
@@ -49,3 +51,43 @@ class PageEvidence(PublicEvidenceModel):
     def require_http_url(cls, value: str) -> str:
         """Apply the same safe URL boundary used by search results."""
         return SearchHit.require_http_url(value)
+
+
+class EvidenceRecord(PublicEvidenceModel):
+    """Stable local identity for one successfully fetched public page."""
+
+    evidence_id: str = Field(min_length=1)
+    page: PageEvidence
+
+
+class ResearchClaim(PublicEvidenceModel):
+    """Audience-facing fact or conclusion backed by retained evidence."""
+
+    claim_id: str = Field(min_length=1)
+    text: str = Field(min_length=1)
+    evidence_ids: tuple[str, ...] = Field(min_length=1)
+
+
+class FailedPage(PublicEvidenceModel):
+    """Recoverable page-read failure retained for auditability."""
+
+    url: str
+    error: str = Field(min_length=1)
+
+    @field_validator("url")
+    @classmethod
+    def require_http_url(cls, value: str) -> str:
+        return SearchHit.require_http_url(value)
+
+
+class ResearchPacket(PublicEvidenceModel):
+    """Ordered research output for one user-authored outline section."""
+
+    chapter_index: int = Field(ge=1)
+    section_index: int = Field(ge=1)
+    chapter_title: str = Field(min_length=1)
+    section_title: str = Field(min_length=1)
+    claims: tuple[ResearchClaim, ...] = ()
+    evidence: tuple[EvidenceRecord, ...] = ()
+    failed_pages: tuple[FailedPage, ...] = ()
+    assets: tuple[ResearchAsset, ...] = ()
