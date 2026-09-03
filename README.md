@@ -1,6 +1,6 @@
 # LocalDeck MVP
 
-LocalDeck 是一个独立的、无需 Docker 的本地 PowerPoint 生成 MVP。它接受纯文本主题，调用 GLM 完成“内容研究 → 页面设计”两个 Agent 阶段，在本机用 Playwright 检查 HTML，再用 PptxGenJS 导出并回读验证可编辑的 `.pptx`。
+LocalDeck 是一个独立的、无需 Docker 的本地 PowerPoint 生成器。它既保留“一句话生成 PPT”的基础模式，也支持“结构化大纲 + 已导入 PPTX 模板”的双路线模式：一条路线直接复用模板源页和组件，另一条路线依据模板字体、配色和间距生成新 HTML 布局。两条路线共享同一份内容计划，最终输出两份可编辑 `.pptx` 和并排对比报告。
 
 > 结论：当前 DeepPresenter 主运行链把浏览器、文件工具和转换环境放进 Docker，Docker 是其正常运行依赖，不只是开发依赖。LocalDeck 没有尝试假装容器不存在，而是把容器承担的隔离职责逐项替换成本地边界，因此核心流程可以不启动 Docker 复刻。
 
@@ -18,6 +18,20 @@ LocalDeck 是一个独立的、无需 Docker 的本地 PowerPoint 生成 MVP。�
   → PptxGenJS 可编辑元素
   → python-pptx 回读验证
   → 原子发布 output.pptx
+```
+
+模板大纲模式的核心链路：
+
+```text
+大纲 JSON + 已导入 PPTX 模板
+  → 模板全页扫描、预览和风格抽取
+  → Coding Plan Search/Reader MCP 并发检索每个 section
+  → 自动分页（每个 section 至少 1 页，总计不超过 30 页）
+  → 共享 slide-plan / 文案 / 证据
+  ├─ Route B：克隆源页、替换可编辑槽、必要时派生模板布局
+  └─ Route C：2–4 页批量生成模板约束 HTML、定点修复、PPTX 导出
+  → PowerPoint 最终渲染 + 内容/结构/视觉质量闸门
+  → template-route.pptx + html-route.pptx + comparison.html
 ```
 
 可交互调用链见 [`docs/call-chain.html`](docs/call-chain.html)。它支持深浅色、路径聚焦、缩放和导出。
@@ -79,7 +93,7 @@ LocalDeck 是一个独立的、无需 Docker 的本地 PowerPoint 生成 MVP。�
 
 复杂 CSS 特效、SVG 动画、视频、图表语义和 PowerPoint 动画不在 MVP 范围内。
 
-### 6. 两道质量门禁
+### 6. 三层质量门禁
 
 HTML 门禁检查：
 
@@ -88,11 +102,15 @@ HTML 门禁检查：
 - 文本是否被 `scrollWidth/scrollHeight` 裁切；
 - 图片加载、浏览器控制台和页面错误。
 
-PPTX 门禁检查：
+最终 PPTX 门禁检查：
 
 - 文件可由 `python-pptx` 重新打开；
 - 页数与请求一致；
-- 每页至少包含一个非空、可编辑的文本形状。
+- 每页至少包含一个非空、可编辑的文本形状；
+- 大纲章节覆盖、原始顺序、证据与底部来源；
+- 30 页上限、空占位符、品牌标识、疑似裁切和低对比文字；
+- 全套页面是否过度复用同一种布局轮廓；
+- Windows 上由 Microsoft PowerPoint 渲染最终 PPTX，最终渲染而非 HTML 截图是发布依据。
 
 导出先写临时文件，验证通过后才原子替换目标路径，避免失败时破坏已有文件。
 
@@ -102,9 +120,10 @@ PPTX 门禁检查：
 - [`uv`](https://docs.astral.sh/uv/)；
 - Node.js 20 或更高版本及 npm；
 - 可访问 GLM OpenAI 兼容 API 的网络；
-- PowerShell、bash 或其他普通终端。
+- Windows PowerShell；
+- 模板导入和模板双路线模式需要本机安装桌面版 Microsoft PowerPoint。
 
-不需要 Docker、WSL、LibreOffice 或 Poppler。
+不需要 Docker、WSL、LibreOffice 或 Poppler。一句话 HTML 模式不依赖 PowerPoint；模板模式当前只在 Windows + PowerPoint 上提供最终渲染验收。
 
 ## 安装
 
@@ -116,7 +135,7 @@ npm install --prefix localdeck/vendor/html2pptx
 uv run playwright install chromium
 ```
 
-Linux/macOS 使用同样三条命令。
+Linux/macOS 可运行基础 HTML 路线，但当前没有模板模式所需的最终 PPTX 预览后端。
 
 ## 配置密钥
 
@@ -141,6 +160,11 @@ export ZAI_API_KEY="替换成你自己的密钥"
 | `LOCALDECK_MODEL` | `glm-5.2` | 模型名 |
 | `LOCALDECK_BASE_URL` | `https://open.bigmodel.cn/api/coding/paas/v4` | Coding Plan 的 OpenAI Chat Completion 端点 |
 | `LOCALDECK_RUNS_DIR` | `./runs` | 诊断工作区根目录 |
+| `LOCALDECK_TEMPLATE_DIR` | `./templates` | 已导入模板包目录 |
+| `LOCALDECK_SEARCH_MCP_URL` | 智谱 Coding Plan Search MCP | 公共网页搜索端点 |
+| `LOCALDECK_READER_MCP_URL` | 智谱 Coding Plan Reader MCP | 公共网页读取端点 |
+| `LOCALDECK_HTML_BATCH_SIZE` | `3` | Route C 单次生成页数，范围 2–4 |
+| `LOCALDECK_MAX_REPAIRS` | `2` | Route C 失败页最大定点修复次数 |
 
 不要把真实密钥写入 `.env`、命令历史、Issue、截图或 Git；已经在聊天或其他外部位置暴露过的密钥应在服务端轮换。
 
@@ -168,6 +192,46 @@ uv run python -m localdeck generate "一个两页的测试主题" --slides 2 --o
 - `--aspect-ratio`：`16:9` 或 `4:3`；
 - `--output / -o`：必须以 `.pptx` 结尾。
 
+## 使用 PPTX 模板和大纲
+
+先导入模板。导入会扫描全部源页、抽取字体/配色/间距、识别可替换区域，并用 PowerPoint 生成本地审计预览：
+
+```powershell
+uv run localdeck template import "C:\资料\华为教育模板.pptx" `
+  --name huawei-education
+
+uv run localdeck template inspect huawei-education
+```
+
+大纲格式如下；每个 chapter 可以自动扩展为多页，但任何 section 都不会被删除或打乱：
+
+```json
+{
+  "title": "交流材料标题",
+  "chapters": [
+    {
+      "chapter_title": "1. 第一章",
+      "sections": ["1.1 第一节", "1.2 第二节"]
+    }
+  ]
+}
+```
+
+仓库内置了 [`examples/huawei-tongji-outline.json`](examples/huawei-tongji-outline.json)。一键生成两条路线：
+
+```powershell
+uv run localdeck generate `
+  --outline .\examples\huawei-tongji-outline.json `
+  --template huawei-education `
+  --routes template,html `
+  --max-slides 30 `
+  --output-dir .\output\huawei-tongji
+```
+
+`--template` 使用导入时的名称，不接受任意外部路径。只重跑失败路线时，把 `--routes` 改为 `template` 或 `html`；已成功发布的另一份 PPTX 不会被生成失败覆盖。
+
+研究只访问公开网页。Search MCP 找候选资料，Reader MCP 读取正文；可见页脚保留短来源，完整 URL、访问时间和失败记录保存在运行目录。请求会消耗 Coding Plan 对应的模型/MCP 配额，具体可用量和限流由智谱账户与套餐决定；额度不足或限流会明确失败，不会静默伪造事实。
+
 ## 运行产物
 
 每次调用创建独立目录：
@@ -191,6 +255,18 @@ runs/<timestamp>-<id>/
 ```
 
 `manifest.json` 记录 Research、Design、Export、Verify 四个阶段的状态和产物。任何阶段失败，目录仍保留用于复盘。
+
+模板模式的发布目录为：
+
+```text
+output/<name>/
+├── template-route.pptx
+├── html-route.pptx
+├── comparison.html
+└── comparison_assets/
+```
+
+运行工作区还会保留 `research/`、`planning/slide-plan.json`、`planning/frame-map.json`、两条路线的中间文件、PowerPoint 最终预览、质量报告、阶段耗时和去敏后的 MCP 调用历史。
 
 ## 测试与检查
 
@@ -223,11 +299,15 @@ uv run python -m pytest -m live tests/smoke/test_glm_live.py -v
 
 ## 已知限制
 
-- MVP 只接受文本主题，不处理 PDF、DOCX、模板、网页研究或图片生成。
-- 版式质量依赖模型；自动检查擅长发现越界和裁切，不评价审美与事实准确性。
+- 模板必须是可编辑 `.pptx`；受密码保护或损坏的文件会在导入阶段失败。
+- 图表、SmartArt、OLE、视频、动画和宏可以随克隆页保留，但当前不会自动改写其内部数据或行为。
+- Route B 只编辑已识别的文本/图片槽；无法安全识别的对象按品牌家具保留或不使用。
+- Route C 可以在模板设计令牌内创造新布局，但不能保证复刻 PowerPoint 动画、母版逻辑或所有复杂 SVG/CSS 效果。
+- 公共检索质量取决于可访问网页与账户配额；正式对外材料仍应由业务和法务复核事实、引用与授权。
+- 自动检查擅长发现结构、裁切、空白渲染和低对比问题，不替代人工审美评审。
 - HTML-to-PPTX 只覆盖明确列出的 CSS/DOM 子集。
 - MCP、浏览器和 Node 都在用户权限下运行，不具备容器级内核隔离。
-- 2026-09-03 的 `npm audit` 会报告 2 个 high：`pptxgenjs@4.0.1` 的传递依赖 `image-size@2.0.2` 在 ICNS/JXL/HEIF 解析上存在拒绝服务公告，当前上游最新版尚无修复版。文本主题 MVP 不向模型开放任意图片输入，但部署到不可信输入环境前必须重新评估或替换该依赖。
+- 2026-09-03 的本地安装报告 3 个 high 级 npm 依赖告警；其中包含 `pptxgenjs@4.0.1` 的传递依赖 `image-size@2.0.2` 解析拒绝服务公告。不要使用 `npm audit fix --force` 盲目升级；部署到不可信输入环境前应重新审计和替换受影响依赖。
 
 ## 项目文档
 
@@ -242,10 +322,17 @@ uv run python -m pytest -m live tests/smoke/test_glm_live.py -v
 ```text
 localdeck/
 ├── agents/       # 通用 Agent Loop、Research、Design
+├── comparison/   # Route B/C 并排报告
+├── generation/   # 模板组件路线与模板约束 HTML 路线
+├── inputs/       # 大纲规范化与校验
 ├── llm/          # GLM OpenAI 兼容客户端
 ├── mcp/          # 本地 MCP Client、Hub 与三个 Server
+├── planning/     # 自动分页、共享 slide plan 与文案
 ├── prompts/      # 阶段 prompt
+├── quality/      # HTML、内容和最终 PPTX 闸门
+├── research/     # 公共检索、网页读取、证据与素材
 ├── rendering/    # 浏览器抽取、PPTX 导出和回读验证
+├── templates/    # PPTX 导入、扫描、克隆与模板包
 ├── tools/        # 工作区受限文件工具
 └── vendor/       # 小型、可审计的 Node PPTX 渲染器
 ```
