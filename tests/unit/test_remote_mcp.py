@@ -19,8 +19,10 @@ class FakeSession:
 
     fail_initialize = False
     exited = False
+    instances = 0
 
     def __init__(self, reader: object, writer: object) -> None:
+        type(self).instances += 1
         self.reader = reader
         self.writer = writer
 
@@ -55,10 +57,11 @@ class FakeSession:
 
 
 class ConcurrentFakeSession(FakeSession):
-    """Expose whether a shared session receives overlapping tool requests."""
+    """Expose whether concurrent requests use isolated sessions."""
 
     active_calls = 0
     max_active_calls = 0
+    completed_calls = 0
 
     async def call_tool(
         self, name: str, arguments: dict[str, Any]
@@ -72,6 +75,7 @@ class ConcurrentFakeSession(FakeSession):
             return await super().call_tool(name, arguments)
         finally:
             type(self).active_calls -= 1
+            type(self).completed_calls += 1
 
 
 @pytest.mark.asyncio
@@ -101,6 +105,7 @@ async def test_remote_client_connects_lists_calls_and_redacts_history(
     )
     monkeypatch.setattr(remote_module, "ClientSession", FakeSession)
     token = "coding-plan-secret"
+    FakeSession.instances = 0
     client = RemoteMCPClient(
         "https://search.example/mcp",
         SecretStr(token),
@@ -124,6 +129,7 @@ async def test_remote_client_connects_lists_calls_and_redacts_history(
     assert tools[0].name == "webSearchPrime"
     assert result.text == "webSearchPrime:ok"
     assert result.is_error is False
+    assert FakeSession.instances == 2
     assert client.history[0]["arguments"] == {
         "query": "Huawei annual report",
         "api_key": "[REDACTED]",
@@ -152,6 +158,7 @@ async def test_remote_client_closes_transport_when_initialization_fails(
 
     FakeSession.fail_initialize = True
     FakeSession.exited = False
+    FakeSession.instances = 0
     monkeypatch.setattr(
         remote_module, "streamablehttp_client", fake_streamablehttp_client
     )
@@ -162,7 +169,7 @@ async def test_remote_client_closes_transport_when_initialization_fails(
     )
 
     with pytest.raises(RuntimeError, match="initialization failed"):
-        await client.__aenter__()
+        await client.list_tools()
 
     assert FakeSession.exited is True
     assert transport_exited is True
@@ -170,10 +177,10 @@ async def test_remote_client_closes_transport_when_initialization_fails(
 
 
 @pytest.mark.asyncio
-async def test_remote_client_serializes_concurrent_tool_calls(
+async def test_remote_client_isolates_concurrent_tool_calls(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A shared Streamable HTTP session must not receive overlapping requests."""
+    """Concurrent requests must not share one Streamable HTTP session."""
 
     @asynccontextmanager
     async def fake_streamablehttp_client(
@@ -190,6 +197,8 @@ async def test_remote_client_serializes_concurrent_tool_calls(
     )
     monkeypatch.setattr(remote_module, "ClientSession", ConcurrentFakeSession)
     ConcurrentFakeSession.max_active_calls = 0
+    ConcurrentFakeSession.completed_calls = 0
+    ConcurrentFakeSession.instances = 0
     client = RemoteMCPClient(
         "https://search.example/mcp", SecretStr("coding-plan-secret")
     )
@@ -200,4 +209,5 @@ async def test_remote_client_serializes_concurrent_tool_calls(
             client.call_tool("webSearchPrime", {"query": "second"}),
         )
 
-    assert ConcurrentFakeSession.max_active_calls == 1
+    assert ConcurrentFakeSession.instances == 2
+    assert ConcurrentFakeSession.completed_calls == 2

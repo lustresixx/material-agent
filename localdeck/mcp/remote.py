@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import asyncio
-from contextlib import AsyncExitStack
+from collections.abc import AsyncIterator
+from contextlib import AsyncExitStack, asynccontextmanager
 from types import TracebackType
 from typing import Any
 
@@ -32,12 +32,28 @@ class RemoteMCPClient:
         self._token = token
         self.timeout = timeout
         self.sse_read_timeout = sse_read_timeout
-        self._stack: AsyncExitStack | None = None
-        self._session: ClientSession | None = None
-        self._call_lock = asyncio.Lock()
         self.history: list[dict[str, Any]] = []
 
     async def __aenter__(self) -> RemoteMCPClient:
+        """Keep the wrapper lightweight; each operation owns its connection."""
+
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        """Connections are already closed by individual operations."""
+
+    @asynccontextmanager
+    async def _connect(self) -> AsyncIterator[ClientSession]:
+        """Open one initialized transport/session per remote operation."""
+
+        # Coding Plan Streamable HTTP responses close their SSE stream after a
+        # result. Reusing the SDK session triggers a closed-memory-stream race,
+        # so isolate every operation at the protocol lifecycle boundary.
         stack = AsyncExitStack()
         try:
             reader, writer, _ = await stack.enter_async_context(
@@ -52,51 +68,34 @@ class RemoteMCPClient:
                     sse_read_timeout=self.sse_read_timeout,
                 )
             )
-            session = await stack.enter_async_context(ClientSession(reader, writer))
+            session = await stack.enter_async_context(
+                ClientSession(reader, writer)
+            )
             await session.initialize()
-        except BaseException:
+            yield session
+        finally:
             await stack.aclose()
-            raise
-        self._stack = stack
-        self._session = session
-        return self
-
-    async def __aexit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc_value: BaseException | None,
-        traceback: TracebackType | None,
-    ) -> None:
-        if self._stack is not None:
-            await self._stack.aclose()
-        self._stack = None
-        self._session = None
-
-    def _require_session(self) -> ClientSession:
-        if self._session is None:
-            raise RuntimeError("Remote MCP client is not connected")
-        return self._session
 
     async def list_tools(self) -> list[MCPTool]:
         """Fetch remote tool definitions in the shared agent-tool shape."""
-        response = await self._require_session().list_tools()
-        return [
-            MCPTool(
-                name=tool.name,
-                description=tool.description or "",
-                input_schema=tool.inputSchema,
-            )
-            for tool in response.tools
-        ]
+        async with self._connect() as session:
+            response = await session.list_tools()
+            return [
+                MCPTool(
+                    name=tool.name,
+                    description=tool.description or "",
+                    input_schema=tool.inputSchema,
+                )
+                for tool in response.tools
+            ]
 
     async def call_tool(
         self, name: str, arguments: dict[str, Any] | None = None
     ) -> MCPToolResult:
         """Call a remote tool and retain only sanitized audit history."""
         call_arguments = arguments or {}
-        # A Streamable HTTP session must not receive overlapping SSE requests.
-        async with self._call_lock:
-            response = await self._require_session().call_tool(name, call_arguments)
+        async with self._connect() as session:
+            response = await session.call_tool(name, call_arguments)
         texts = [
             block.text for block in response.content if isinstance(block, TextContent)
         ]
