@@ -7,7 +7,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class RunStage(StrEnum):
@@ -17,6 +17,13 @@ class RunStage(StrEnum):
     DESIGN = "design"
     EXPORT = "export"
     VERIFY = "verify"
+
+
+class GenerationRoute(StrEnum):
+    """Available visual generation engines for a template-aware run."""
+
+    TEMPLATE = "template"
+    HTML = "html"
 
 
 class StageRecord(BaseModel):
@@ -54,6 +61,49 @@ class GenerationRequest(BaseModel):
         if value.suffix.lower() != ".pptx":
             raise ValueError("output must use the .pptx extension")
         return value.expanduser().resolve()
+
+
+class TemplateGenerationRequest(BaseModel):
+    """Validated request for structured, template-aware deck generation."""
+
+    model_config = ConfigDict(frozen=True)
+
+    outline: Path
+    template: str
+    routes: tuple[GenerationRoute, ...] = (
+        GenerationRoute.TEMPLATE,
+        GenerationRoute.HTML,
+    )
+    max_slides: int = Field(default=30, ge=1, le=30)
+    language: Literal["zh", "en"] = "zh"
+    output_dir: Path
+
+    @field_validator("outline", "output_dir")
+    @classmethod
+    def resolve_request_path(cls, value: Path) -> Path:
+        """Resolve request paths so downstream stages share stable locations."""
+        return value.expanduser().resolve()
+
+    @field_validator("template")
+    @classmethod
+    def resolve_template_path(cls, value: str) -> str:
+        """Resolve the editable source template supplied by the user."""
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("template cannot be blank")
+        return str(Path(normalized).expanduser().resolve())
+
+    @field_validator("routes")
+    @classmethod
+    def validate_routes(
+        cls, values: tuple[GenerationRoute, ...]
+    ) -> tuple[GenerationRoute, ...]:
+        """Require at least one unique supported generation route."""
+        if not values:
+            raise ValueError("routes must contain at least one route")
+        if len(values) != len(set(values)):
+            raise ValueError("routes cannot contain duplicates")
+        return values
 
 
 class InspectionIssue(BaseModel):
