@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+import asyncio
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import AsyncExitStack, asynccontextmanager
 from types import TracebackType
 from typing import Any
 
+import httpx
 from mcp import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
 from mcp.types import TextContent
@@ -27,11 +29,13 @@ class RemoteMCPClient:
         *,
         timeout: float = 30,
         sse_read_timeout: float = 300,
+        max_retries: int = 3,
     ) -> None:
         self.url = url
         self._token = token
         self.timeout = timeout
         self.sse_read_timeout = sse_read_timeout
+        self.max_retries = max_retries
         self.history: list[dict[str, Any]] = []
 
     async def __aenter__(self) -> RemoteMCPClient:
@@ -76,9 +80,24 @@ class RemoteMCPClient:
         finally:
             await stack.aclose()
 
+    async def _run_with_retries(
+        self, operation: Callable[[ClientSession], Awaitable[Any]]
+    ) -> Any:
+        """Retry only transient transport failures with a fresh MCP session."""
+
+        for attempt in range(self.max_retries + 1):
+            try:
+                async with self._connect() as session:
+                    return await operation(session)
+            except Exception as error:
+                if attempt >= self.max_retries or not _is_transient(error):
+                    raise
+                await asyncio.sleep(min(0.5 * 2**attempt, 4))
+        raise RuntimeError("unreachable MCP retry state")
+
     async def list_tools(self) -> list[MCPTool]:
         """Fetch remote tool definitions in the shared agent-tool shape."""
-        async with self._connect() as session:
+        async def fetch(session: ClientSession) -> list[MCPTool]:
             response = await session.list_tools()
             return [
                 MCPTool(
@@ -89,13 +108,16 @@ class RemoteMCPClient:
                 for tool in response.tools
             ]
 
+        return await self._run_with_retries(fetch)
+
     async def call_tool(
         self, name: str, arguments: dict[str, Any] | None = None
     ) -> MCPToolResult:
         """Call a remote tool and retain only sanitized audit history."""
         call_arguments = arguments or {}
-        async with self._connect() as session:
-            response = await session.call_tool(name, call_arguments)
+        response = await self._run_with_retries(
+            lambda session: session.call_tool(name, call_arguments)
+        )
         texts = [
             block.text for block in response.content if isinstance(block, TextContent)
         ]
@@ -129,3 +151,13 @@ def _redact(value: Any) -> Any:
     if isinstance(value, tuple):
         return tuple(_redact(item) for item in value)
     return value
+
+
+def _is_transient(error: BaseException) -> bool:
+    """Return whether an error or nested error group is transport-transient."""
+
+    if isinstance(error, httpx.TransportError):
+        return True
+    if isinstance(error, BaseExceptionGroup):
+        return any(_is_transient(nested) for nested in error.exceptions)
+    return False

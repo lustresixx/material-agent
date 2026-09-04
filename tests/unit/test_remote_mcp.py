@@ -7,6 +7,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from httpx import ConnectError
 from mcp.types import TextContent
 from pydantic import SecretStr
 
@@ -211,3 +212,44 @@ async def test_remote_client_isolates_concurrent_tool_calls(
 
     assert ConcurrentFakeSession.instances == 2
     assert ConcurrentFakeSession.completed_calls == 2
+
+
+@pytest.mark.asyncio
+async def test_remote_client_reconnects_after_transient_transport_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A proxy connection failure should reopen the operation session once."""
+
+    attempts = 0
+
+    @asynccontextmanager
+    async def flaky_streamablehttp_client(
+        url: str,
+        *,
+        headers: dict[str, str],
+        timeout: float,
+        sse_read_timeout: float,
+    ) -> AsyncIterator[tuple[object, object, object]]:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise ExceptionGroup(
+                "transport failed", [ConnectError("proxy unavailable")]
+            )
+        yield object(), object(), object()
+
+    FakeSession.fail_initialize = False
+    monkeypatch.setattr(
+        remote_module, "streamablehttp_client", flaky_streamablehttp_client
+    )
+    monkeypatch.setattr(remote_module, "ClientSession", FakeSession)
+    client = RemoteMCPClient(
+        "https://search.example/mcp",
+        SecretStr("coding-plan-secret"),
+        max_retries=1,
+    )
+
+    tools = await client.list_tools()
+
+    assert tools[0].name == "webSearchPrime"
+    assert attempts == 2
