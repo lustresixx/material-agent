@@ -115,16 +115,20 @@ class HtmlRouteGenerator:
         aspect_ratio: str,
         repair_issues: dict[str, tuple[str, ...]] | None,
     ) -> tuple[dict[str, str], dict[str, tuple[str, ...]]]:
-        response = await self._llm.complete(
-            build_messages(
-                slides,
-                theme,
-                aspect_ratio=aspect_ratio,
-                repair_issues=repair_issues,
-            ),
-            [],
-        )
         expected = {slide.slide_id for slide in slides}
+        try:
+            response = await self._llm.complete(
+                build_messages(
+                    slides,
+                    theme,
+                    aspect_ratio=aspect_ratio,
+                    repair_issues=repair_issues,
+                ),
+                [],
+            )
+        except Exception as error:
+            issue = f"Model request failed: {type(error).__name__}"
+            return {}, {slide_id: (issue,) for slide_id in expected}
         try:
             candidates = _parse_response(response.content or "")
         except (json.JSONDecodeError, ValueError, TypeError):
@@ -239,18 +243,35 @@ def _contrast(first: str, second: str) -> float:
 
 
 def _fallback_html(slide: SlideSpec) -> str:
-    bullets = "".join(
-        f"<li>{html.escape(item)}</li>"
+    title = html.escape(_truncate(_plain_fallback_text(slide.title), 60))
+    message = html.escape(_truncate(_plain_fallback_text(slide.core_message), 180))
+    items = [
+        _truncate(_plain_fallback_text(item), 90)
         for block in slide.content_blocks
         for item in block.items
+        if _plain_fallback_text(item)
+    ][:4]
+    bullets = "".join(
+        f"<li>{html.escape(item)}</li>"
+        for item in items
     )
     footer = (
-        f"<footer>{html.escape(slide.source_footer)}</footer>"
+        f"<footer>{html.escape(_truncate(slide.source_footer, 160))}</footer>"
         if slide.source_footer
         else ""
     )
     return f"""<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8">
 <link rel="stylesheet" href="global.css"><link rel="stylesheet" href="theme.css">
-</head><body><main><h1>{html.escape(slide.title)}</h1>
-<p>{html.escape(slide.core_message)}</p><ul>{bullets}</ul></main>{footer}</body></html>"""
+</head><body><main><h1>{title}</h1>
+<p>{message}</p><ul>{bullets}</ul></main>{footer}</body></html>"""
+
+
+def _plain_fallback_text(value: str) -> str:
+    normalized = " ".join(value.split())
+    normalized = re.sub(r"^[-*+]\s+", "", normalized)
+    return re.sub(r"^#{1,6}\s+", "", normalized)
+
+
+def _truncate(value: str, limit: int) -> str:
+    return value if len(value) <= limit else f"{value[: limit - 1].rstrip()}…"

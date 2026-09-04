@@ -35,6 +35,7 @@ class GLMClient:
             api_key=settings.api_key.get_secret_value(),
             base_url=settings.base_url,
             timeout=settings.request_timeout_seconds,
+            max_retries=0,
         )
 
     async def complete(

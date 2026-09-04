@@ -103,6 +103,50 @@ async def test_uses_safe_fallback_after_repair_budget_is_exhausted(
     assert len(Presentation(result.pptx).slides) == 2
 
 
+async def test_uses_safe_fallback_when_the_model_request_fails(
+    tmp_path: Path,
+) -> None:
+    plan = _plan(2)
+    plan = plan.model_copy(
+        update={
+            "slides": (
+                plan.slides[0].model_copy(
+                    update={
+                        "core_message": "- #### " + "持续深化全面智能化战略" * 80,
+                        "content_blocks": (
+                            ContentBlock(
+                                kind="bullets",
+                                items=("超长研究原文" * 100, "第二段研究原文" * 100),
+                            ),
+                        ),
+                    }
+                ),
+                plan.slides[1],
+            )
+        }
+    )
+
+    class FailingLLM:
+        async def complete(
+            self, messages: list[dict[str, object]], tools: list[dict[str, object]]
+        ) -> AssistantResponse:
+            raise TimeoutError("model request timed out")
+
+    result = await HtmlRouteGenerator(
+        FailingLLM(), batch_size=2, max_repairs=0
+    ).generate(
+        shared_copy=SharedCopy(plan=plan, evidence={}),
+        theme=_theme(),
+        workspace=tmp_path / "request-failure-work",
+        output=tmp_path / "request-failure.pptx",
+        aspect_ratio="16:9",
+    )
+
+    assert result.model_calls == 1
+    assert result.fallback_slides == ("slide-01", "slide-02")
+    assert len(Presentation(result.pptx).slides) == 2
+
+
 def _plan(count: int) -> SlidePlan:
     return SlidePlan(
         max_slides=30,

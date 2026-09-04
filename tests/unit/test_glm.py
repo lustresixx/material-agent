@@ -54,3 +54,18 @@ def test_retry_classification_uses_status_code() -> None:
     assert should_retry(transient)
     assert should_retry(server_error)
     assert not should_retry(auth_error)
+
+
+def test_glm_client_disables_the_sdk_retry_layer(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    def build_client(**kwargs: object) -> SimpleNamespace:
+        captured.update(kwargs)
+        return SimpleNamespace()
+
+    monkeypatch.setattr("localdeck.llm.glm.AsyncOpenAI", build_client)
+    settings = Settings(api_key=SecretStr("secret"), max_retries=3)
+
+    GLMClient(settings)
+
+    assert captured["max_retries"] == 0
